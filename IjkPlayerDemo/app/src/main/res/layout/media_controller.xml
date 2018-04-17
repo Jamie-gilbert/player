@@ -87,10 +87,12 @@
             android:layout_weight="1"
             android:maxHeight="1dp"
             android:minHeight="1dp"
-            android:progressBackgroundTint="@android:color/white"
+            android:progressBackgroundTint="@android:color/darker_gray"
             android:progressBackgroundTintMode="src_atop"
+            android:progressDrawable="@android:color/darker_gray"
             android:progressTint="@android:color/white"
-            android:secondaryProgressTint="@android:color/darker_gray"
+            android:secondaryProgress="@android:color/darker_gray"
+            android:secondaryProgressTint="@android:color/white"
             android:thumb="@drawable/ic_video_point" />
 
         <TextView

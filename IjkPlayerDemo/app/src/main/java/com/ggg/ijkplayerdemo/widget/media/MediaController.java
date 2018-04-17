@@ -154,20 +154,26 @@ public class MediaController extends FrameLayout {
             Constructor constructor = clazz.getDeclaredConstructor(Context.class);
             mWindow = (Window) constructor.newInstance(mContext);
         } catch (Exception e) {
-            e.printStackTrace();
+
+            try {
+                Class clazz = Class.forName("com.android.internal.policy.impl.PhoneWindow");
+                Constructor constructor = clazz.getDeclaredConstructor(Context.class);
+                mWindow = (Window) constructor.newInstance(mContext);
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+
         }
 
+        // While the media controller is up, the volume control keys should
+        // affect the media stream type
         mWindow.setWindowManager(mWindowManager, null, null);
         mWindow.requestFeature(Window.FEATURE_NO_TITLE);
         mDecor = mWindow.getDecorView();
         mDecor.setOnTouchListener(mTouchListener);
         mWindow.setContentView(this);
         mWindow.setBackgroundDrawableResource(android.R.color.transparent);
-
-        // While the media controller is up, the volume control keys should
-        // affect the media stream type
         mWindow.setVolumeControlStream(AudioManager.STREAM_MUSIC);
-
         setFocusable(true);
         setFocusableInTouchMode(true);
         setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);

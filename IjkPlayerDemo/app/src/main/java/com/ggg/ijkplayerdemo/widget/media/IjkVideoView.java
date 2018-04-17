@@ -28,9 +28,13 @@ import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
+import android.text.BoringLayout;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
+import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -108,7 +112,8 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
     private boolean mCanPause = true;
     private boolean mCanSeekBack = true;
     private boolean mCanSeekForward = true;
-
+    private float lastDy = 0;
+    private float lastDx = 0;
     /** Subtitle rendering widget overlaid on top of the video. */
     // private RenderingWidget mSubtitleWidget;
 
@@ -135,6 +140,7 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
     private float startX;
     private float startY;
     private Context context;
+    private GestureDetector detector;
 
     public IjkVideoView(Context context) {
         super(context);
@@ -192,6 +198,7 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
                 LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM);
         addView(subtitleDisplay, layoutParams_txt);
+        detector = new GestureDetector(context, new ControllerGestureListener());
     }
 
     public void setRenderView(IRenderView renderView) {
@@ -766,68 +773,31 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        float currentX = ev.getX();
-        float currentY = ev.getY();
-        Log.d(TAG, "onTouchEvent: ");
-        switch (ev.getAction()) {
-
-            case MotionEvent.ACTION_DOWN:
-                startY = ev.getY();
-                startX = ev.getX();
-
-
-                break;
-            case MotionEvent.ACTION_MOVE:
-                Log.d(TAG, "ACTION_SCROLL: currentY:" + currentY + ";;currentX:" + currentX);
-
-                if (currentX > 0 && currentY > 0) {
-
-                    float dy = currentY - startY;
-                    float dx = currentX - startX;
-                    switchType(dx, dy);
-                }
-                break;
-            case MotionEvent.ACTION_UP:
-                Log.d(TAG, "onTouchEvent: ACTION_UP");
-                if (Math.abs(currentX - startX) < 5 && Math.abs(startY - currentY) < currentY) {
-                    if (isInPlaybackState() && mMediaController != null) {
-                        toggleMediaControlsVisiblity();
-                    }
-                }
-                break;
+        if (detector.onTouchEvent(ev)) {
+            return true;
         }
-
-        return true;
+        return super.onTouchEvent(ev);
     }
 
-    /**
-     * 选择控制的类型
-     *
-     * @param dx
-     * @param dy
-     */
-    private void switchType(float dx, float dy) {
-        Log.d(TAG, "switchType: dx:" + dx + ";;dy:" + dy);
-        if (startX < (getMax4Horizontal() / 3)) {//在屏幕的左边
-            controlLight(dy);
-        } else if (startX > (2 * getMax4Horizontal() / 3)) {//在屏幕右边
-            controlVolume(dy);
-        } else {//在屏幕中间区域
-            controlSeek(dx);
-        }
-    }
+
 
     /**
      * 控制声音大小
      */
-    private void controlVolume(float dy) {
-        float dv = SystemUtils.getDifferVolume();
-        SystemUtils.setCurrentVolume(dv * (dy / getMax4Vertical()));
-//        if(dy<0){//放大音量
-//
-//        }else {//缩小音量
-//
-//        }
+    private void controlVolume(float precent) {
+        Log.d(TAG, "controlVolume: precent::"+precent);
+        float volume = SystemUtils.getCurrentVolume();
+        if (volume < 0) {
+            volume = 0;
+        }
+        int index = (int) ((precent * SystemUtils.getMaxVolume()) + volume);
+        if (index > SystemUtils.getMaxVolume()) {
+            index = (int) SystemUtils.getMaxVolume();
+        } else if (index < 0) {
+            index = 0;
+        }
+
+        SystemUtils.setCurrentVolume(index);
     }
 
     /**
@@ -1431,5 +1401,79 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
 
     public int getSelectedTrack(int trackType) {
         return MediaPlayerCompat.getSelectedTrack(mMediaPlayer, trackType);
+    }
+
+    class ControllerGestureListener extends GestureDetector.SimpleOnGestureListener {
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+
+            return super.onSingleTapUp(e);
+        }
+
+        @Override
+        public void onLongPress(MotionEvent e) {
+            super.onLongPress(e);
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            float mOldX = e1.getX();
+            float mOldY = e1.getY();
+            int y = (int) e2.getRawY();
+            Display display = ((Activity) context).getWindowManager().getDefaultDisplay();
+            DisplayMetrics metrics = new DisplayMetrics();
+            display.getMetrics(metrics);
+            int screenW = metrics.widthPixels;
+            int screenH = metrics.heightPixels;
+            if (mOldX > screenW * 4.0 / 5) {//右滑
+                controlVolume((mOldY - y) / screenH);
+            } else if (mOldX < screenW / 5.0) {//左滑
+
+            }
+
+            return super.onScroll(e1, e2, distanceX, distanceY);
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            return super.onFling(e1, e2, velocityX, velocityY);
+        }
+
+        @Override
+        public void onShowPress(MotionEvent e) {
+            super.onShowPress(e);
+        }
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+
+            if(mMediaController.isShowing()){
+                mMediaController.hide();
+            }else {
+                mMediaController.show();
+            }
+
+            return super.onDown(e);
+        }
+
+        @Override
+        public boolean onDoubleTap(MotionEvent e) {
+            return super.onDoubleTap(e);
+        }
+
+        @Override
+        public boolean onDoubleTapEvent(MotionEvent e) {
+            return super.onDoubleTapEvent(e);
+        }
+
+        @Override
+        public boolean onSingleTapConfirmed(MotionEvent e) {
+            return super.onSingleTapConfirmed(e);
+        }
+
+        @Override
+        public boolean onContextClick(MotionEvent e) {
+            return super.onContextClick(e);
+        }
     }
 }
